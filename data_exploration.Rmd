@@ -1,0 +1,134 @@
+---
+title: "Cancer Incidence in the Scottish Borders"
+author: "Sarina Singh Khaira"
+date: "01/02/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(janitor)
+```
+
+```{r}
+lookup <- read_csv("data/geography_codes_and_labels_hb2014_01042019.csv") %>% 
+  clean_names()
+
+cancer_data <- read_csv("data/opendata_inc9418_hb.csv") %>%
+  clean_names()
+```
+
+```{r}
+#isolate NHS borders code
+borders_hb <- lookup %>% filter(str_detect(hb_name, "Borders")) %>% pull(hb)
+
+#extract data for borders
+borders_cancer <- cancer_data %>% filter(hb == borders_hb)
+```
+
+```{r}
+head(borders_cancer)
+```
+
+
+
+```{r}
+#Take a look at the ICD10 codes and what they correspond to
+borders_cancer %>% select(cancer_site_icd10code, cancer_site) %>%
+  distinct() %>% view()
+```
+
+```{r}
+#All time cancer admissions over time, appear to be increasing
+borders_cancer %>% filter(cancer_site == "All cancer types", sex == "All") %>%
+  ggplot() +
+  aes(x = year, y = incidences_all_ages) +
+  geom_line() +
+  scale_x_continuous(breaks = c(1994:2018), labels = c(1994:2018)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust =1)) +
+  labs( x = "Year", y = "Number of new cancer registrations")
+```
+
+```{r}
+borders_cancer %>% 
+  mutate(sir_ci_range = sir_upper95pc_confidence_interval - sir_lower95pc_confidence_interval) %>%
+  filter(sir_ci_range < 450) %>%
+  arrange(desc(standardised_incidence_ratio))
+
+```
+
+
+Cancer Incidence in the Borders
+
+- Total number of admissions in each year (incidences all ages)
+- Admissions per gender
+
+```{r}
+borders_cancer %>% filter(sex != "All", 
+                          cancer_site == "All cancer types") %>%
+  summarise(total_incidences = sum(incidences_all_ages))
+```
+
+```{r}
+borders_cancer %>% filter(year == 2016) %>% filter(cancer_site != "All cancer types", sex == "All") %>% summarise( total = sum(incidences_all_ages))
+```
+
+
+- Most common types - top 10? plot them
+```{r}
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "All") %>%
+  group_by(cancer_site) %>%
+  summarise(total_incidence = sum(incidences_all_ages)) %>%
+  slice_max(total_incidence, n=10)
+```
+
+```{r}
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "All",
+         year == 2018) %>%
+  arrange(desc(incidences_all_ages)) 
+```
+```{r}
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "All",
+         year == 2018) %>%
+  arrange(desc(crude_rate)) 
+```
+```{r}
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "All",
+         year == 2018) %>%
+  arrange(desc(wasr)) 
+```
+```{r}
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "All",
+         year == 2018) %>%
+  arrange(desc(easr)) 
+```
+
+```{r}
+
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "All",
+         year == 2018) %>%
+  arrange(desc(standardised_incidence_ratio)) 
+```
+For this report WASR and EASR are irrelevant - they are only used if wanting to compare with other countries within Europe or Worldwide. As we are focusing on the incidence of cancer in the Borders alone, we can look at crude rate or number of admissions. 
+
+However, when identifying problem areas we should take into account the SIR - it gives us a measure of whether or not the rate of incidence is expected, or if there is a problem that needs to be addressed. Equally low incidences could be due to something in place that is working?
+
+- Admissions per age group
+* have a look to see if top 10 varies whether you use crude, easr, wasr or sir. 
