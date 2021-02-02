@@ -1,0 +1,55 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Column	Type	Label	Description
+HB	 : 	Health board 
+
+
+CancerSiteICD10Code	 : 	The ICD10 codes that make up the diagnosed cancer site	
+CancerSite	 : 	The diagnosed cancer site	
+
+Sex	 : 	Sex	
+SexQF	 : 	Qualifier for Sex	(d = derived)
+
+Year	 : 	Year of diagnosis. Data ranges from 1994 - 2018
+
+IncidencesAllAges	 : 	Total number of new cancer registrations
+
+CrudeRate	 : 	The crude rate is calculated per 100,000 person-years at risk
+
+CrudeRateLower95pcConfidenceInterval	 : 	Lower confidence interval for the crude rate
+CrudeRateUpper95pcConfidenceInterval	 : 	Upper confidence interval for the crude rate	
+
+EASR	 : 	The European age-standardised (using the 2013 European Standard Population) incidence rate per 100,000 person-years at risk	
+(This is the rate that would have been found if the population of Scotland had the same age-composition (proportion of total population in each five year age class) as a hypothetical European population.
+
+The rates are calculated by applying the age-specific rates for the location being studied to a theoretical European standard population, usually expressed per 100,000 persons per year.)
+
+EASRLower95pcConfidenceInterval	 : 	Lower confidence interval for the European age-standardised rate	
+EASRLower95pcConfidenceIntervalQF	 : 	Qualifier for EASRLower95pcConfidenceInterval	
+EASRUpper95pcConfidenceInterval	 : 	Upper confidence interval for the European age-standardised rate	
+EASRUpper95pcConfidenceIntervalQF	 : 	Qualifier for EASRUpper95pcConfidenceInterval	
+
+
+WASR	 : 	The World age-standardised incidence rate per 100,000 person-years at risk (World standard population)	
+
+WASRLower95pcConfidenceInterval	 : 	Lower confidence interval for the World age-standardised rate	
+WASRLower95pcConfidenceIntervalQF	 : 	Qualifier for WASRLower95pcConfidenceInterval	
+WASRUpper95pcConfidenceInterval	 : 	Upper confidence interval for the World age-standardised rate	
+WASRUpper95pcConfidenceIntervalQF	 : 	Qualifier for WASRUpper95pcConfidenceInterval	
+
+
+StandardisedIncidenceRatio	 : 	The standardised incidence ratio	
+SIRLower95pcConfidenceInterval	 : 	Lower confidence interval for the standardised incidence ratio	
+SIRUpper95pcConfidenceInterval	 : 	Upper confidence interval for the standardised incidence ratio	
+
+Standardised Incidence Ratio: https://www.state.nj.us/health/ceohs/documents/eohap/haz_sites/passaic/pompton_lakes/pompton_lakes_fs_sir.pdf
+
+(If its higher than 100, then there are more than expected)
+
+https://www.mass.gov/doc/appendix-a-explanation-of-a-standardized-incidence-ratio-sir-and-95-confidence-interval-0/download : this states that the 95 CI should not include 100, if they do then its not statistically different from the mean. If there are fewer than 5 cases then it make sense not to calculate the SIR. Also if the 95 CI range is too wide (85-450) then its too unstable to really report
+
+3.  Confidence intervals for age- and sex-standardised rates (EASR and WASR) have been calculated using a formula which works only when numbers are sufficiently large.  They are therefore set to 'not applicable' in the event of there being fewer than 20 cases.
+
