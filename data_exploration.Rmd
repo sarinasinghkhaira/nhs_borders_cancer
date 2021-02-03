@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(janitor)
 ```
-
+# Reading in and cleaning data
 ```{r}
 lookup <- read_csv("data/geography_codes_and_labels_hb2014_01042019.csv") %>% 
   clean_names()
@@ -42,6 +42,7 @@ borders_cancer %>% select(cancer_site_icd10code, cancer_site) %>%
   distinct() %>% view()
 ```
 
+# Cancer admissions over time
 ```{r}
 #All time cancer admissions over time, appear to be increasing
 borders_cancer %>% filter(cancer_site == "All cancer types", sex == "All") %>%
@@ -54,6 +55,7 @@ borders_cancer %>% filter(cancer_site == "All cancer types", sex == "All") %>%
   labs( x = "Year", y = "Number of new cancer registrations")
 ```
 
+# Calculating CI range of SIR
 ```{r}
 borders_cancer %>% 
   mutate(sir_ci_range = sir_upper95pc_confidence_interval - sir_lower95pc_confidence_interval) %>%
@@ -68,27 +70,67 @@ Cancer Incidence in the Borders
 - Total number of admissions in each year (incidences all ages)
 - Admissions per gender
 
+# Total number of admissions 
+
 ```{r}
 borders_cancer %>% filter(sex != "All", 
                           cancer_site == "All cancer types") %>%
   summarise(total_incidences = sum(incidences_all_ages))
 ```
-
+# Admissions per cancer site, all gender
 ```{r}
-borders_cancer %>% filter(year == 2016) %>% filter(cancer_site != "All cancer types", sex == "All") %>% summarise( total = sum(incidences_all_ages))
+borders_cancer %>% filter(year == 2016) %>% 
+  filter(cancer_site != "All cancer types", sex == "All") %>% 
+  summarise( total = sum(incidences_all_ages))
 ```
 
+# Top 10 most common cancers
 
-- Most common types - top 10? plot them
 ```{r}
-borders_cancer %>% 
+top_10_cancer <- borders_cancer %>% 
   filter(cancer_site != "All cancer types",
          sex == "All") %>%
   group_by(cancer_site) %>%
   summarise(total_incidence = sum(incidences_all_ages)) %>%
-  slice_max(total_incidence, n=10)
+  slice_max(total_incidence, n=10) %>%
+  pull(cancer_site)
+
+borders_cancer %>%
+  filter(cancer_site %in% top_10_cancer, sex == "All") %>%
+  ggplot() +
+  aes(x = year, y = incidences_all_ages) +
+  geom_line() +
+  facet_wrap(~cancer_site)
+```
+# Top 10 cancers for women
+
+```{r}
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "Female") %>%
+  group_by(cancer_site, sex) %>%
+  summarise(total_incidence = sum(incidences_all_ages)) %>%
+  group_by(sex) %>%
+  slice_max(total_incidence, n=10) %>%
+  ggplot() +
+   aes(x = reorder(cancer_site, total_incidence), y = total_incidence) +
+   geom_col() +
+  coord_flip() 
+
+borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         sex == "Male") %>%
+  group_by(cancer_site, sex) %>%
+  summarise(total_incidence = sum(incidences_all_ages)) %>%
+  group_by(sex) %>%
+  slice_max(total_incidence, n=10) %>%
+  ggplot() +
+   aes(x = reorder(cancer_site, total_incidence), y = total_incidence) +
+   geom_col() +
+  coord_flip() 
 ```
 
+# Cancer admissions per type in 2018
 ```{r}
 borders_cancer %>% 
   filter(cancer_site != "All cancer types",
@@ -96,6 +138,8 @@ borders_cancer %>%
          year == 2018) %>%
   arrange(desc(incidences_all_ages)) 
 ```
+# crude rate
+
 ```{r}
 borders_cancer %>% 
   filter(cancer_site != "All cancer types",
@@ -103,6 +147,8 @@ borders_cancer %>%
          year == 2018) %>%
   arrange(desc(crude_rate)) 
 ```
+# wasr
+
 ```{r}
 borders_cancer %>% 
   filter(cancer_site != "All cancer types",
@@ -110,6 +156,8 @@ borders_cancer %>%
          year == 2018) %>%
   arrange(desc(wasr)) 
 ```
+# easr
+
 ```{r}
 borders_cancer %>% 
   filter(cancer_site != "All cancer types",
@@ -117,7 +165,7 @@ borders_cancer %>%
          year == 2018) %>%
   arrange(desc(easr)) 
 ```
-
+# SIR
 ```{r}
 
 borders_cancer %>% 
@@ -126,9 +174,30 @@ borders_cancer %>%
          year == 2018) %>%
   arrange(desc(standardised_incidence_ratio)) 
 ```
+
+Please prepare a 1 to 2 page analysis summary answering the question below.
+
+In order to help inform the planning for provision of cancer treatment services in NHS Borders, we would like to gain better understanding of the incidence of cancer in NHS Borders.
+
+You will present your findings back to us during the Mock Interviews. Presentations will be 5 minutes long.
+
+
+
+- have a look to see if top 10 varies whether you use crude, easr, wasr or sir. 
+
 For this report WASR and EASR are irrelevant - they are only used if wanting to compare with other countries within Europe or Worldwide. As we are focusing on the incidence of cancer in the Borders alone, we can look at crude rate or number of admissions. 
 
 However, when identifying problem areas we should take into account the SIR - it gives us a measure of whether or not the rate of incidence is expected, or if there is a problem that needs to be addressed. Equally low incidences could be due to something in place that is working?
 
-- Admissions per age group
-* have a look to see if top 10 varies whether you use crude, easr, wasr or sir. 
+
+
+- could look at top 10 and see if they are all increasing or decreasing over time?
+- add a column which calculates the yearly increase/decrease, and find the most increasing ones??
+
+- would it be helpful to see the top 10 cancers affecting men, and the top 10 affecting women? 
+
+Before visualations start with key statistics:
+- how many admissions per year?
+- increase since 1992?
+- cancer with the most number of admissions?
+- in 2018, how many men and how many women?

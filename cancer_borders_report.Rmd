@@ -1,35 +1,259 @@
 ---
 title: "NHS Borders Cancer Incidence Report"
 author: "Sarina Singh Khaira"
-date: "02/02/2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+
+library(tidyverse)
+library(janitor)
+library(gridExtra)
+library(grid)
+
+lookup <- read_csv("data/geography_codes_and_labels_hb2014_01042019.csv") %>% 
+  clean_names()
+
+cancer_data <- read_csv("data/opendata_inc9418_hb.csv") %>%
+  clean_names()
+
+#isolate NHS borders code
+borders_hb <- lookup %>% filter(str_detect(hb_name, "Borders")) %>% pull(hb)
+
+#extract data for borders
+borders_cancer <- cancer_data %>% filter(hb == borders_hb)
+
+#ICD codes containing totals
+cancer_totals <- c("C00-C97, excluding C44", "C44") #, "D06", "D05", "D18.0, D32-D33, D35.2-D35.4, D42-D43, D44.3-D44.5")
+
+#keeps from long strings:
+keeps_long <- c("C00-C14", "C33-C34", "C40-C41", "C53-C55", "C82-C86",  "ICD-10 C47+C49", "C18-C20", "C64-C65", "C70-C72, C75.1-C75.3, D18.0, D32-D33, D35.2-D35.4, D42-D43, D44.3-D44.5", "C91-C95")
+
+#drop from short strings: C18 C53 C54
+
+borders_cancer <- borders_cancer %>%
+  mutate(keep_drop = case_when(
+    cancer_site_icd10code %in% c("C18", "C53", "C54", "C71") ~ "drop",
+    cancer_site_icd10code %in% keeps_long ~ "keep",
+    nchar(cancer_site_icd10code) > 3 ~ "drop",
+    TRUE ~ "keep")) 
+    
+
 ```
 
 # Introduction & Methodology
 
-This analysis reports on the incidence of cancer within the NHS Borders health board. Data includes cancer admission by cancer site and gender for the years 1994 - 2018 and can be found [here](https://www.opendata.nhs.scot/dataset/annual-cancer-incidence). 
+This analysis reports on the incidence of cancer within the NHS Borders health board. Data includes cancer admission by cancer site and gender for the years 1994 - 2018 and can be found [here](https://www.opendata.nhs.scot/dataset/annual-cancer-incidence). For this analysis I have focused on the last decade, from 2009 - 2018. 
 
-Each cancer site is classified according to the ICD10 code, an alpha numeric code which corresponds to each type of cancer and where it is found in the body. 
+Each cancer site is classified according to the ICD10 code, an alpha numeric code which corresponds to each type of cancer and where it is found in the body. The data set includes individual ICD codes as well as ICD code groupings. I have chosen to include the individual ICD codes where possible when identifying the most common cancer sites. For totals and aggregates, I have used the grouped ICD10 codes. 
 
 This analysis focuses on the total number of new cancer registrations, the crude rate per population as well as the standardised incidence ratio of each cancer type. The EASR and WASR have not been included as this report focuses solely on admissions within the Borders health board, and is not to be used to compare cancer rates with other nations. 
 
 ##### Standardised Incidence Ratio (SIR)
-The standardised incidence ratio (SIR) is used to determine if the occurence of a certain type of cancer is higher or lower than expected in a relatively small population, given the population and age distribution of the community. 
+The standardised incidence ratio (SIR) is used to determine if the occurrence of a certain type of cancer is higher or lower than expected in a relatively small population, given the population and age distribution of the community. 
 
 If the SIR is greater than 100, it indicates that the cancer rate is higher than expected in that particular population. If the SIR is lower than 100, the cancer rate is lower than expected,
 
 Care must be taken to interpret the SIR, as often the confidence limits can have a very large range. If the lower 95% CI is less than 100, and the upper is more than 100, it is possible that the true SIR does not deviate from 100 (is as expected.)
 
 # Findings
-## Summary Statistics
- * ow many admissions per year?
- * increase since 1992?
- * cancer with the most number of admissions?
- * in 2018, how many men and how many women?
-## Top 10 types of cancer per gender
-### If they are increasing or decreasing with time
+
+## Summary Statistics from 2009-2018:
+
+
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+number_registrations_per_year <- borders_cancer %>% 
+  filter(cancer_site_icd10code %in% cancer_totals, 
+         sex == "All",
+         year %in% c(2009:2018)) %>% 
+  summarise(total_registrations = sum(incidences_all_ages),
+            average_registrations_per_year = round(sum(incidences_all_ages)/10)
+            ) %>% pull(average_registrations_per_year)
+
+```
+
+* There are an average of `r number_registrations_per_year` cancer registrations per year.
+
+
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+c44_number_registrations_per_year <- borders_cancer %>% 
+  filter(cancer_site_icd10code %in% cancer_totals, 
+         sex == "All",
+         year %in% c(2009:2018), 
+         cancer_site_icd10code == "C44") %>% 
+  summarise(total_registrations = sum(incidences_all_ages),
+            average_registrations_per_year = round(sum(incidences_all_ages)/10)
+            ) %>% pull(average_registrations_per_year)
+```
+
+* The most common cancer admission (accross men and women) is Non-melanoma skin cancer, equaling `r c44_number_registrations_per_year` admissions per year, accounting for `r round((c44_number_registrations_per_year/number_registrations_per_year)*100)`% of all registrations. 
+ 
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+gender_admissions <-  borders_cancer %>% 
+  filter(cancer_site_icd10code %in% cancer_totals, 
+         sex != "All",
+         year %in% c(2009:2018)) %>% 
+  group_by(sex) %>%
+  summarise(total_registrations = sum(incidences_all_ages),
+            average_registrations_per_year = round(sum(incidences_all_ages)/10)
+            ) %>%
+  pull(average_registrations_per_year)
+names(gender_admissions) <- c("Female", "Male")
+```
+ 
+ * Of all cancer registrations, females accounted for `r gender_admissions["Female"]` registrations per year, and males for `r `gender_admissions["Male"]` registrations. 
+ 
+ 
+### Ten most common cancer sites for men and women
+
+
+
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+
+top_10_gender <- borders_cancer %>% 
+  filter(cancer_site != "All cancer types",
+         year %in% c(2009:2018),
+         keep_drop == "keep") %>%
+  group_by(cancer_site, sex) %>%
+  summarise(total_incidence = sum(incidences_all_ages)) %>%
+  group_by(sex) %>%
+  slice_max(total_incidence, n=10) %>%
+  mutate(cancer_site = str_wrap(cancer_site, width = 20))
+
+
+plot1 <- top_10_gender %>%
+  filter(sex == "Female") %>%
+  ggplot() +
+   aes(x = reorder(cancer_site, total_incidence), y = total_incidence/5) +
+   geom_col(fill = "orange") +
+  theme_minimal() +
+  scale_y_continuous(limits = c(0, 360)) +
+  labs(x = "Cancer Site",
+       y = NULL,
+       subtitle = "Female") +
+  coord_flip() 
+
+plot2 <- top_10_gender %>% 
+  filter(sex == "Male") %>%
+  ggplot() +
+   aes(x = reorder(cancer_site, total_incidence), y = total_incidence/5) +
+   geom_col(fill = "darkturquoise") +
+  theme_minimal() +
+  scale_y_continuous(limits = c(0, 360)) +
+  labs(y = NULL,
+       x = NULL, 
+       subtitle = "Male") +
+  coord_flip() 
+
+grid.arrange(plot1, plot2, ncol=2, 
+             top=textGrob("Most Common Cancer Registrations per Gender (2009 - 2018)",  x = 0.01, hjust = 0), 
+             bottom = textGrob("Average number of registrations per year"))
+```
+
+***
+
+### Trends since 1994
+
+
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+top_5_female <- borders_cancer %>% 
+  filter(keep_drop == "keep",
+         sex == "Female",
+         year == "2018") %>%
+  group_by(cancer_site) %>%
+  summarise(total_incidence = sum(incidences_all_ages)) %>%
+  slice_max(total_incidence, n=5) %>% pull(cancer_site)
+
+
+borders_cancer %>% 
+  filter(keep_drop == "keep",
+         sex == "Female",
+         cancer_site %in% top_5_female) %>%
+mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
+  ggplot(aes(x = year, y = crude_rate, colour = cancer_site)) +
+  geom_line() +
+  scale_x_continuous(breaks =c(seq(1994,2018, by = 2)), labels = c(seq(1994,2018, by = 2))) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust =1)) +
+  labs( x = "Year", y = "Crude Rate of Cancer Incidence",
+        title = "Crude Rate of Cancer Incidence from 1994 - 2018 ",
+        subtitle = "Five most common cancer sites in females") +
+  scale_colour_viridis_d(option = "plasma", name = "Cancer Site")
+```
+
+
+  
+
+
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+top_5_male<- borders_cancer %>% 
+  filter(keep_drop == "keep",
+         sex == "Male",
+         year == "2018") %>%
+  group_by(cancer_site) %>%
+  summarise(total_incidence = sum(incidences_all_ages)) %>%
+  slice_max(total_incidence, n=5) %>% pull(cancer_site)
+
+
+borders_cancer %>% 
+  filter(keep_drop == "keep",
+         sex == "Male",
+         cancer_site %in% top_5_male) %>%
+mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
+  ggplot(aes(x = year, y = crude_rate, colour = cancer_site)) +
+  geom_line() +
+  scale_x_continuous(breaks = c(seq(1994,2018, by = 2)), labels = c(seq(1994,2018, by = 2))) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust =1)) +
+  labs( x = "Year", y = "Crude Rate of Cancer Incidence",
+        title = "Crude Rate of Cancer Incidence from 1994 - 2018 ",
+        subtitle = "Five most common cancer sites in males") +
+  scale_colour_viridis_d(option = "plasma", name = "Cancer Site")
+  
+```
+
+
+***
+
+
 ## Cancers with a high SIR - higher than expected rates
+
+
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+top_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year == 2018, 
+         !cancer_site %in% cancer_totals,
+         incidences_all_ages >= 5,
+         sir_lower95pc_confidence_interval >= 99) 
+  
+
+bottom_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year == 2018, 
+         cancer_site != "All cancer types",
+         incidences_all_ages >= 5,
+         sir_upper95pc_confidence_interval <= 99)
+
+ bind_rows(top_5_sir, bottom_5_sir) %>%
+   mutate(cancer_site = str_wrap(cancer_site, width = 10),
+          ci_range = sir_upper95pc_confidence_interval - sir_lower95pc_confidence_interval) %>%
+      filter(sex != "All",
+             ci_range < 500) %>%
+   ggplot() +
+   aes(x = reorder(cancer_site, standardised_incidence_ratio), y = standardised_incidence_ratio, colour = sex) +
+   geom_pointrange(aes(ymin = sir_lower95pc_confidence_interval,
+                       ymax = sir_upper95pc_confidence_interval )) +
+   geom_hline(yintercept = 100, colour = "red") +
+   labs(x = "Cancer Site",
+        y = "Standardised Incidence Ratio",
+        title = "Incidence of Cancer Sites Above or Below the Expected Rate") +
+   theme_minimal() +
+   scale_color_manual(values = c("Female" = "orange", 
+                                 "Male" = "darkturquoise"), 
+                      name = "Gender")
+   
+
+```
