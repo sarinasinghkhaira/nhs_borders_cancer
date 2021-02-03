@@ -12,6 +12,7 @@ library(tidyverse)
 library(janitor)
 library(gridExtra)
 library(grid)
+library(plotly)
 
 lookup <- read_csv("data/geography_codes_and_labels_hb2014_01042019.csv") %>% 
   clean_names()
@@ -45,18 +46,12 @@ borders_cancer <- borders_cancer %>%
 
 # Introduction & Methodology
 
-This analysis reports on the incidence of cancer within the NHS Borders health board. Data includes cancer admission by cancer site and gender for the years 1994 - 2018 and can be found [here](https://www.opendata.nhs.scot/dataset/annual-cancer-incidence). For this analysis I have focused on the last decade, from 2009 - 2018. 
+This analysis reports on the incidence of cancer within the Scottish Borders NHS health board. Data includes cancer incidence by cancer site and gender for the years 1994 - 2018 and can be found [here](https://www.opendata.nhs.scot/dataset/annual-cancer-incidence). 
 
 Each cancer site is classified according to the ICD10 code, an alpha numeric code which corresponds to each type of cancer and where it is found in the body. The data set includes individual ICD codes as well as ICD code groupings. I have chosen to include the individual ICD codes where possible when identifying the most common cancer sites. For totals and aggregates, I have used the grouped ICD10 codes. 
 
-This analysis focuses on the total number of new cancer registrations, the crude rate per population as well as the standardised incidence ratio of each cancer type. The EASR and WASR have not been included as this report focuses solely on admissions within the Borders health board, and is not to be used to compare cancer rates with other nations. 
+This analysis focuses on the total number of new cancer registrations, the crude rate per 100,000 person-years at risk as well as the standardised incidence ratio (SIR) of each cancer type. The EASR and WASR have not been included as this report focuses solely on admissions within the Borders health board, and is not to be used to compare cancer rates with other nations. 
 
-##### Standardised Incidence Ratio (SIR)
-The standardised incidence ratio (SIR) is used to determine if the occurrence of a certain type of cancer is higher or lower than expected in a relatively small population, given the population and age distribution of the community. 
-
-If the SIR is greater than 100, it indicates that the cancer rate is higher than expected in that particular population. If the SIR is lower than 100, the cancer rate is lower than expected,
-
-Care must be taken to interpret the SIR, as often the confidence limits can have a very large range. If the lower 95% CI is less than 100, and the upper is more than 100, it is possible that the true SIR does not deviate from 100 (is as expected.)
 
 # Findings
 
@@ -103,10 +98,10 @@ gender_admissions <-  borders_cancer %>%
 names(gender_admissions) <- c("Female", "Male")
 ```
  
- * Of all cancer registrations, females accounted for `r gender_admissions["Female"]` registrations per year, and males for `r `gender_admissions["Male"]` registrations. 
+ * Of all cancer registrations, females accounted for `r gender_admissions["Female"]` registrations per year, and males for `r gender_admissions["Male"]` registrations. 
  
  
-### Ten most common cancer sites for men and women
+### Ten most common cancer sites for males and females
 
 
 
@@ -152,6 +147,10 @@ grid.arrange(plot1, plot2, ncol=2,
              bottom = textGrob("Average number of registrations per year"))
 ```
 
+* Non - melanoma skin cancer account for the most registrations across both genders, and is higher in men
+* Breast and prostate cancer for females and males respectively were the next most occurring cancers
+* Colorectal, trachea, bronchus and lung cancers occurred at similar rates across both genders
+
 ***
 
 ### Trends since 1994
@@ -167,7 +166,7 @@ top_5_female <- borders_cancer %>%
   slice_max(total_incidence, n=5) %>% pull(cancer_site)
 
 
-borders_cancer %>% 
+female_plot <- borders_cancer %>% 
   filter(keep_drop == "keep",
          sex == "Female",
          cancer_site %in% top_5_female) %>%
@@ -180,9 +179,16 @@ mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
   labs( x = "Year", y = "Crude Rate of Cancer Incidence",
         title = "Crude Rate of Cancer Incidence from 1994 - 2018 ",
         subtitle = "Five most common cancer sites in females") +
-  scale_colour_viridis_d(option = "plasma", name = "Cancer Site")
+  scale_colour_viridis_d(option = "plasma", name = "Cancer Site", end = 0.9)
+
+ggplotly(female_plot)
 ```
 
+#### Among females:
+
+* There is quite a lot of variation in crude rates from year to year
+* Non-melanoma skin cancer appears to be increasing
+* There appears to be a slight increase in breast cancer incidence and trachea, bronchus and lung cancer
 
   
 
@@ -197,7 +203,7 @@ top_5_male<- borders_cancer %>%
   slice_max(total_incidence, n=5) %>% pull(cancer_site)
 
 
-borders_cancer %>% 
+male_plot <- borders_cancer %>% 
   filter(keep_drop == "keep",
          sex == "Male",
          cancer_site %in% top_5_male) %>%
@@ -212,14 +218,32 @@ mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
         subtitle = "Five most common cancer sites in males") +
   scale_colour_viridis_d(option = "plasma", name = "Cancer Site")
   
+ggplotly(male_plot)
 ```
 
+#### Among males:
+
+* Non-melanoma skin cancer appears to be on the rise
+* Prostate cancer is also showing signs of increase
+* Other cancer types seem to be fairly stable
 
 ***
 
 
-## Cancers with a high SIR - higher than expected rates
+## Which cancers are showing higher/lower incidence than expected?
 
+##### Standardised Incidence Ratio (SIR)
+The standardised incidence ratio (SIR) is used to determine if the occurrence of a certain type of cancer is higher or lower than expected, given the population and age distribution of the community. 
+
+If the SIR is greater than 100, it indicates that the cancer rate is higher than expected in that particular population. If the SIR is lower than 100, the cancer rate is lower than expected,
+
+Care must be taken to interpret the SIR, as often the confidence limits can have a very large range. If the lower 95% CI is less than 100, and the upper is more than 100, it is possible that the true SIR does not deviate from 100 (is as expected). Furthermore there must be sufficient cases of cancer registered, and a sufficiently narrow confidence interval range for robust interpretation.  
+
+The criteria for selecting cancer sites with unexpected incidence are as follows:
+
+* incidence greater than 5
+* confidence intervals that do not overlap 100
+* confidence interval range of less than 500
 
 ```{r, echo=FALSE, warning= FALSE, message= FALSE}
 top_5_sir <- borders_cancer %>%
@@ -249,7 +273,7 @@ bottom_5_sir <- borders_cancer %>%
    geom_hline(yintercept = 100, colour = "red") +
    labs(x = "Cancer Site",
         y = "Standardised Incidence Ratio",
-        title = "Incidence of Cancer Sites Above or Below the Expected Rate") +
+        title = "Incidence of Cancer Sites Above or Below the Expected Rate in 2018") +
    theme_minimal() +
    scale_color_manual(values = c("Female" = "orange", 
                                  "Male" = "darkturquoise"), 
@@ -257,3 +281,25 @@ bottom_5_sir <- borders_cancer %>%
    
 
 ```
+
+
+* Kidney (in males) and breast cancer (in females) were the only cancers to show lower than expected cancer incidence
+* Skin cancers appear to be occurring in rates higher than expected in males
+* Females are showing a higher than expected incidence of multiple myeloma
+
+***
+
+# Conclusion
+
+* Skin cancers appear to dominate cancer registrations in the Scottish Borders and appear to be increasing
+* Incidence of skin cancer is higher in male population than would be expected
+* Breast cancer is the next most occurring cancer in women, though the incidence is lower than expected
+* Prostate cancer is the next most occurring cancer in men
+
+# Additional Information
+
+* [Crude Rate Calculations](https://sph.unc.edu/wp-content/uploads/sites/112/2015/07/nciph_ERIC4.pdf)
+* [Standardised Incidence Ratio Calculations & Interpretaton](https://www.mass.gov/doc/appendix-a-explanation-of-a-standardized-incidence-ratio-sir-and-95-confidence-interval-0/download)
+
+
+
