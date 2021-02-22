@@ -13,13 +13,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(janitor)
 library(gridExtra)
+library(here)
 ```
 # Reading in and cleaning data
 ```{r}
-lookup <- read_csv("data/geography_codes_and_labels_hb2014_01042019.csv") %>% 
+lookup <- read_csv(here("data/geography_codes_and_labels_hb2014_01042019.csv")) %>% 
   clean_names()
 
-cancer_data <- read_csv("data/opendata_inc9418_hb.csv") %>%
+cancer_data <- read_csv(here("data/opendata_inc9418_hb.csv")) %>%
   clean_names()
 ```
 
