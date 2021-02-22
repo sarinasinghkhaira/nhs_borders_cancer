@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(janitor)
+library(gridExtra)
 ```
 # Reading in and cleaning data
 ```{r}
@@ -38,16 +39,84 @@ head(borders_cancer)
 
 ```{r}
 #Take a look at the ICD10 codes and what they correspond to
-borders_cancer %>% select(cancer_site_icd10code, cancer_site) %>%
-  distinct() %>% view()
+icd_code_lookup <- borders_cancer %>% 
+  select(cancer_site_icd10code, cancer_site) %>%
+  distinct() %>% 
+  arrange(cancer_site_icd10code)
+
+
+
+head_neck_cancers <- icd_code_lookup %>% 
+  head(8) %>% 
+  pull(cancer_site_icd10code)
+
+head_neck_cancers <- c(head_neck_cancers, "C32")
+
+
 ```
+
+
+```{r}
+#Sort out the skin cancer
+borders_cancer %>%
+  filter(str_detect(cancer_site_icd10code, "^C44"),
+         year == 2018,
+         sex == "All")
+
+# Basal cell carcinoma and squamous cell carcinoma are already included in C44. Remove row C44 as it is generalised. 
+
+
+
+borders_cancer %>%
+  filter(cancer_site_icd10code %in% head_neck_cancers,
+         year == 2018,
+         sex == "All") %>% view()
+
+#ICD codes containing totals
+cancer_totals <- c("C00-C97, excluding C44", "C44") #, "D06", "D05", "D18.0, D32-D33, D35.2-D35.4, D42-D43, D44.3-D44.5")
+
+#keeps from long strings:
+keeps_long <- c("C00-C14", "C33-C34", "C40-C41", "C53-C55", "C82-C86",  "ICD-10 C47+C49", "C18-C20", "C64-C65", "C70-C72, C75.1-C75.3, D18.0, D32-D33, D35.2-D35.4, D42-D43, D44.3-D44.5", "C91-C95")
+
+#drop from short strings: C18 C53 C54
+
+borders_cancer <- borders_cancer %>%
+  mutate(keep_drop = case_when(
+    cancer_site_icd10code %in% c("C18", "C53", "C54", "C71") ~ "drop",
+    cancer_site_icd10code %in% keeps_long ~ "keep",
+    nchar(cancer_site_icd10code) > 3 ~ "drop",
+    TRUE ~ "keep")) 
+    
+borders_cancer %>%   
+  filter(year == 2018, 
+         sex == "All") %>%
+  group_by(keep_drop) %>% 
+  summarise(t = sum(incidences_all_ages))
+
+
+borders_cancer %>% 
+  filter(year == 2018, 
+         sex == "All") %>%
+  select(cancer_site_icd10code, cancer_site, incidences_all_ages, keep_drop) %>% view()
+
+
+# Rows containing Totals: 
+
+
+borders_cancer %>% 
+  filter(cancer_site_icd10code %in% cancer_totals, sex == "All", year == 2018) %>% 
+  group_by(cancer_site_icd10code) %>% 
+  summarise(sum = sum(incidences_all_ages)) #%>% summarise(total = sum(sum))
+
+```
+
 
 # Cancer admissions over time
 ```{r}
 #All time cancer admissions over time, appear to be increasing
 borders_cancer %>% filter(cancer_site == "All cancer types", sex == "All") %>%
   ggplot() +
-  aes(x = year, y = incidences_all_ages) +
+  aes(x = year, y = crude_rate) +
   geom_line() +
   scale_x_continuous(breaks = c(1994:2018), labels = c(1994:2018)) +
   theme_minimal() +
@@ -175,12 +244,65 @@ borders_cancer %>%
   arrange(desc(standardised_incidence_ratio)) 
 ```
 
+```{r}
+
+borders_cancer_year <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, crude_rate) %>%
+  pivot_wider(names_from = year, values_from = crude_rate, names_prefix = "y_")
+
+highest_increase <- borders_cancer_year %>% 
+  mutate(diff_10_yr = ((y_2018 - y_2009)/y_2009)*100) %>%
+  select(cancer_site, sex, y_2018, y_2009, diff_10_yr) %>%
+  arrange(diff_10_yr) %>%
+  group_by(sex) %>%
+  slice_max(diff_10_yr, n = 5)
+
+highest_increase_male <- highest_increase %>%
+  filter(sex == "Male") %>%
+  pull(cancer_site)
+
+highest_increase_female <- highest_increase %>%
+  filter(sex == "Female") %>%
+  pull(cancer_site)
+
+
+
+borders_cancer %>% 
+  filter(
+         sex == "Male",
+         cancer_site %in% highest_increase_male) %>%
+mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
+  ggplot(aes(x = year, y = crude_rate, colour = cancer_site)) +
+  geom_line() +
+  scale_x_continuous(breaks = c(seq(1994,2018, by = 2)), labels = c(seq(1994,2018, by = 2))) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust =1)) +
+  labs( x = "Year", y = "Crude Rate of Cancer Incidence") +
+  scale_colour_viridis_d(option = "plasma")
+
+
+borders_cancer %>% 
+  filter(
+         sex == "Female",
+         cancer_site %in% highest_increase_female) %>%
+mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
+  ggplot(aes(x = year, y = crude_rate, colour = cancer_site)) +
+  geom_line() +
+  scale_x_continuous(breaks = c(seq(1994,2018, by = 2)), labels = c(seq(1994,2018, by = 2))) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust =1)) +
+  labs( x = "Year", y = "Crude Rate of Cancer Incidence") +
+  scale_colour_viridis_d(option = "plasma")
+
+```
+
+
+
 Please prepare a 1 to 2 page analysis summary answering the question below.
 
 In order to help inform the planning for provision of cancer treatment services in NHS Borders, we would like to gain better understanding of the incidence of cancer in NHS Borders.
 
 You will present your findings back to us during the Mock Interviews. Presentations will be 5 minutes long.
-
 
 
 - have a look to see if top 10 varies whether you use crude, easr, wasr or sir. 
@@ -201,3 +323,120 @@ Before visualations start with key statistics:
 - increase since 1992?
 - cancer with the most number of admissions?
 - in 2018, how many men and how many women?
+
+
+```{r}
+top_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year == 2018, 
+         incidences_all_ages >= 5) %>%
+  group_by(sex) %>%
+  slice_max(standardised_incidence_ratio, n = 5) 
+
+bottom_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year == 2018, 
+         incidences_all_ages >= 5) %>%
+  group_by(sex) %>%
+  slice_min(standardised_incidence_ratio, n = 5) 
+
+ bind_rows(top_5_sir, bottom_5_sir) %>%
+   filter(sex == "Female") %>%
+   mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
+   ggplot() +
+   aes(x = reorder(cancer_site, standardised_incidence_ratio), y = standardised_incidence_ratio) +
+   geom_pointrange(aes(ymin = sir_lower95pc_confidence_interval,
+                       ymax = sir_upper95pc_confidence_interval )) +
+   geom_hline(yintercept = 100, colour = "red") 
+   
+
+```
+
+```{r}
+ bind_rows(top_5_sir, bottom_5_sir) %>%
+   filter(sex == "Male") %>%
+   mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
+   ggplot() +
+   aes(x = reorder(cancer_site, standardised_incidence_ratio), y = standardised_incidence_ratio) +
+   geom_pointrange(aes(ymin = sir_lower95pc_confidence_interval,
+                       ymax = sir_upper95pc_confidence_interval )) +
+   geom_hline(yintercept = 100, colour = "red") 
+```
+
+
+```{r}
+top_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year == 2018, 
+         !cancer_site %in% cancer_totals,
+         incidences_all_ages >= 5,
+         sir_lower95pc_confidence_interval >= 99) 
+  
+
+bottom_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year == 2018, 
+         cancer_site != "All cancer types",
+         incidences_all_ages >= 5,
+         sir_upper95pc_confidence_interval <= 99)
+
+ bind_rows(top_5_sir, bottom_5_sir) %>%
+   mutate(cancer_site = str_wrap(cancer_site, width = 10),
+          ci_range = sir_upper95pc_confidence_interval - sir_lower95pc_confidence_interval) %>%
+      filter(sex != "All",
+             ci_range < 500) %>%
+   ggplot() +
+   aes(x = reorder(cancer_site, standardised_incidence_ratio), y = standardised_incidence_ratio, colour = sex) +
+   geom_pointrange(aes(ymin = sir_lower95pc_confidence_interval,
+                       ymax = sir_upper95pc_confidence_interval )) +
+   geom_hline(yintercept = 100, colour = "red") +
+   labs(x = "Cancer Site",
+        y = "Standardised Incidence Ratio",
+        title = "") +
+   theme_minimal() +
+   scale_color_manual(values = c("Female" = "orange", "Male" = "darkturquoise"))
+   
+
+```
+
+
+
+
+```{r, echo=FALSE, warning= FALSE, message= FALSE}
+top_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year %in% c(2016, 2017, 2018), 
+         !cancer_site %in% cancer_totals,
+         incidences_all_ages >= 5,
+         sir_lower95pc_confidence_interval >= 99) 
+  
+
+bottom_5_sir <- borders_cancer %>%
+  select(cancer_site_icd10code, cancer_site, sex, year, incidences_all_ages, standardised_incidence_ratio, sir_lower95pc_confidence_interval, sir_upper95pc_confidence_interval, keep_drop) %>%
+  filter(year %in% c(2000:2018), 
+         cancer_site != "All cancer types",
+         incidences_all_ages >= 5,
+         sir_upper95pc_confidence_interval <= 99)
+
+sir_plot<- bind_rows(top_5_sir, bottom_5_sir) %>%
+   mutate(cancer_site = str_wrap(cancer_site, width = 10),
+          ci_range = sir_upper95pc_confidence_interval - sir_lower95pc_confidence_interval) %>%
+      filter(sex != "All",
+             ci_range < 500) %>%
+   ggplot() +
+   aes(x = reorder(cancer_site, standardised_incidence_ratio), y = standardised_incidence_ratio, colour = sex) +
+   geom_pointrange(aes(ymin = sir_lower95pc_confidence_interval,
+                       ymax = sir_upper95pc_confidence_interval )) +
+   geom_hline(yintercept = 100, colour = "red") +
+   labs(x = "Cancer Site",
+        y = "Standardised Incidence Ratio",
+        title = "Incidence of Cancer Sites Above or Below the Expected Rate in 2018") +
+   theme_minimal() +
+   scale_color_manual(values = c("Female" = "orange", 
+                                 "Male" = "darkturquoise"), 
+                      name = "Gender") +
+   facet_wrap(~year, nrow = 3)
+
+library(plotly)   
+ggplotly(sir_plot)
+```

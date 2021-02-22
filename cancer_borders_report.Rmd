@@ -52,10 +52,11 @@ Each cancer site is classified according to the ICD10 code, an alpha numeric cod
 
 This analysis focuses on the total number of new cancer registrations, the crude rate per 100,000 person-years at risk as well as the standardised incidence ratio (SIR) of each cancer type. The EASR and WASR have not been included as this report focuses solely on admissions within the Borders health board, and is not to be used to compare cancer rates with other nations. 
 
+***
 
 # Findings
 
-## Summary Statistics from 2009-2018:
+### Summary Statistics from 2009-2018:
 
 
 ```{r, echo=FALSE, warning= FALSE, message= FALSE}
@@ -101,8 +102,7 @@ names(gender_admissions) <- c("Female", "Male")
  * Of all cancer registrations, females accounted for `r gender_admissions["Female"]` registrations per year, and males for `r gender_admissions["Male"]` registrations. 
  
  
-### Ten most common cancer sites for males and females
-
+### Cancer registrations by cancer site and gender
 
 
 ```{r, echo=FALSE, warning= FALSE, message= FALSE}
@@ -153,7 +153,7 @@ grid.arrange(plot1, plot2, ncol=2,
 
 ***
 
-### Trends since 1994
+### Crude rate of cancer incidence over time
 
 
 ```{r, echo=FALSE, warning= FALSE, message= FALSE}
@@ -177,8 +177,7 @@ mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust =1)) +
   labs( x = "Year", y = "Crude Rate of Cancer Incidence",
-        title = "Crude Rate of Cancer Incidence from 1994 - 2018 ",
-        subtitle = "Five most common cancer sites in females") +
+        title = "Crude Rate of Cancer Incidence among Females (1994 - 2018)") +
   scale_colour_viridis_d(option = "plasma", name = "Cancer Site", end = 0.9)
 
 ggplotly(female_plot)
@@ -191,7 +190,7 @@ ggplotly(female_plot)
 * There appears to be a slight increase in breast cancer incidence and trachea, bronchus and lung cancer
 
   
-
+***
 
 ```{r, echo=FALSE, warning= FALSE, message= FALSE}
 top_5_male<- borders_cancer %>% 
@@ -214,8 +213,7 @@ mutate(cancer_site = str_wrap(cancer_site, width = 20)) %>%
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust =1)) +
   labs( x = "Year", y = "Crude Rate of Cancer Incidence",
-        title = "Crude Rate of Cancer Incidence from 1994 - 2018 ",
-        subtitle = "Five most common cancer sites in males") +
+        title = "Crude Rate of Cancer Incidence among Males (1994 - 2018) ") +
   scale_colour_viridis_d(option = "plasma", name = "Cancer Site")
   
 ggplotly(male_plot)
@@ -296,10 +294,14 @@ bottom_5_sir <- borders_cancer %>%
 * Breast cancer is the next most occurring cancer in women, though the incidence is lower than expected
 * Prostate cancer is the next most occurring cancer in men
 
-# Additional Information
+*** 
 
+
+## Additional Information
+
+* [ICD10 Codes](https://datadictionary.nhs.uk/data_elements/icd-10_code.html)
 * [Crude Rate Calculations](https://sph.unc.edu/wp-content/uploads/sites/112/2015/07/nciph_ERIC4.pdf)
 * [Standardised Incidence Ratio Calculations & Interpretaton](https://www.mass.gov/doc/appendix-a-explanation-of-a-standardized-incidence-ratio-sir-and-95-confidence-interval-0/download)
-
+* [Scottish Cancer Incidence Data](https://www.opendata.nhs.scot/dataset/annual-cancer-incidence)
 
 
